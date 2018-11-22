@@ -1,0 +1,13 @@
+- hosts: all
+  sudo: yes
+  remote_user: ubuntu
+  gather_facts: no
+  pre_tasks:
+    - name: 'apt update'
+      raw: 'apt-get update'
+    - name: 'install python2'
+      raw: sudo apt-get -y install python
+
+  tasks:
+    - name: 'Display Config'
+      raw: 'uname -a'

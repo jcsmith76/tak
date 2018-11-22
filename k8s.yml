@@ -1,0 +1,133 @@
+- hosts: all
+  sudo: yes
+  remote_user: ubuntu
+  gather_facts: no
+
+  tasks:
+    - name: 'Install curl'
+      apt:
+        name: "{{ packages }}"
+      vars:
+        packages:
+          - apt-transport-https
+          - curl
+
+    - name: 'Add Google Apt key'
+      apt_key:
+        url: https://packages.cloud.google.com/apt/doc/apt-key.gpg
+        state: present
+
+    - name: 'Add Kubernetes Repository'
+      apt_repository:
+        repo: deb https://apt.kubernetes.io/ kubernetes-xenial main
+        state: present
+
+    - name: 'Install k8s components'
+      apt:
+        name: "{{ packages }}"
+      vars:
+        packages:
+          - kubelet
+          - kubeadm
+          - kubectl
+
+    - name: 'Install Docker'
+      apt:
+        name: 'docker.io'
+
+    - name: 'Mod Probe'
+      shell: |
+        modprobe ip_vs_rr
+        modprobe ip_vs
+        modprobe ip_vs_sh
+        modprobe ip_vs_wrr
+
+- hosts: master
+  sudo: yes
+  remote_user: ubuntu
+  gather_facts: no
+
+  tasks:
+    - name: 'kubeadm init'
+      shell: 'kubeadm init --pod-network-cidr=192.168.0.0/16'
+      args:
+        creates: '/var/lib/kubelet/config.yaml'
+
+- hosts: master
+  sudo: yes
+  remote_user: ubuntu
+  gather_facts: no
+
+  tasks:
+
+    - name: 'Setup kubectl'
+      #sudo: false
+      shell: |
+        mkdir -p /home/ubuntu/.kube
+        cp -i /etc/kubernetes/admin.conf /home/ubuntu/.kube/config
+        chown ubuntu:ubuntu /home/ubuntu/.kube/config
+      args:
+        creates: /home/ubuntu/.kube/config
+
+- hosts: master
+  sudo: yes
+  remote_user: ubuntu
+  gather_facts: no
+
+  tasks:
+
+    - name: Get join command from master
+      shell: kubeadm token create --print-join-command
+      #when: role == "master"
+      run_once: true
+      register: join_command
+
+    - name: "Add K8S Token and Hash to dummy host"
+      add_host:
+        name:   "K8S_TOKEN_HOLDER"
+        token:  "{{ join_command.stdout }}"
+
+- hosts: worker
+  sudo: yes
+  remote_user: ubuntu
+  gather_facts: no
+
+  tasks:
+    - name: 'kubeadm join'
+      shell: "{{ hostvars['K8S_TOKEN_HOLDER']['token'] }}"
+      args:
+        creates: '/var/lib/kubelet/config.yaml'
+
+- hosts: master
+  sudo: no
+  remote_user: ubuntu
+  gather_facts: no
+
+  tasks:
+    - name: 'Deploy Calico etcd pod'
+      shell: 'kubectl apply -f https://docs.projectcalico.org/v3.3/getting-started/kubernetes/installation/hosted/etcd.yaml'
+
+- hosts: master
+  sudo: no
+  remote_user: ubuntu
+  gather_facts: no
+
+  tasks:
+    - name: 'Deploy Calico rbac'
+      shell: 'kubectl apply -f https://docs.projectcalico.org/v3.3/getting-started/kubernetes/installation/rbac.yaml'
+
+- hosts: master
+  sudo: no
+  remote_user: ubuntu
+  gather_facts: no
+
+  tasks:
+    - name: 'Deploy Calico'
+      shell: 'kubectl apply -f https://docs.projectcalico.org/v3.3/getting-started/kubernetes/installation/hosted/calico.yaml'
+
+
+
+
+
+
+
