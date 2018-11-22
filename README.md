@@ -3,7 +3,14 @@
 Just a collection of hacky scripts used to setup and tear down simple k8s clusters on EC2
 
 - Install Terraform, AWS CLI and Ansible on your laptop
-- Fill in the access and secret keys
+- Fill in the access and secret keys in ```tf-k8s.tf```
+- Run 
+```
+terraform plan
+terraform apply
+./tf_ansible.sh
+```
+
 - Scripts will create a new VPC and other resources and use 3 new floating IPs
 
 Run ```terraform destroy``` when you want to clean up
